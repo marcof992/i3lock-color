@@ -155,6 +155,7 @@ char* fonts[6] = {
 
 char ind_x_expr[32] = "x + (w / 2)\0";
 char ind_y_expr[32] = "y + (h / 2)\0";
+char radius_expr[32] = "x/y *2\n";
 char time_x_expr[32] = "ix\0";
 char time_y_expr[32] = "iy\0";
 char date_x_expr[32] = "tx\0";
@@ -1924,14 +1925,24 @@ int main(int argc, char *argv[]) {
                 show_indicator = true;
                 break;
             case 402:
-                arg = optarg;
-                if (sscanf(arg, "%lf", &circle_radius) != 1)
-                    errx(1, "radius must be a number\n");
-                if (circle_radius < 1) {
-                    fprintf(stderr, "radius must be a positive integer; ignoring...\n");
-                    circle_radius = 90.0;
+                if (strlen(optarg) > 31) {
+                    // this is overly restrictive since both the x and y string buffers have size 32, but it's easier to check.
+                    errx(1, "radius expression can be at most 31 characters\n");
                 }
+                arg = optarg;
+                if (sscanf(arg, "%30[^:]", radius_expr) != 1) {
+                    errx(1, "error reading radius expression\n");
+                }
+                DEBUG("RADIUS EXPR: %s \n", radius_expr);
                 break;
+                // arg = optarg;
+                // if (sscanf(arg, "%lf", &circle_radius) != 1)
+                //     errx(1, "radius must be a number\n");
+                // if (circle_radius < 1) {
+                //     fprintf(stderr, "radius must be a positive integer; ignoring...\n");
+                //     circle_radius = 90.0;
+                // }
+                // break;
             case 403:
                 arg = optarg;
                 if (sscanf(arg, "%lf", &ring_width) != 1)

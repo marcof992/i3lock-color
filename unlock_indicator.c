@@ -123,6 +123,7 @@ extern char date_format[32];
 extern char *fonts[6];
 extern char ind_x_expr[32];
 extern char ind_y_expr[32];
+extern char radius_expr[32];
 extern char time_x_expr[32];
 extern char time_y_expr[32];
 extern char date_x_expr[32];
@@ -518,12 +519,14 @@ static void draw_bar(cairo_t *ctx, double bar_x, double bar_y, double bar_width,
     cairo_restore(ctx);
 }
 
-static void draw_indic(cairo_t *ctx, double ind_x, double ind_y) {
+static void draw_indic(cairo_t *ctx, double ind_x, double ind_y, double indic_radius) {
+    DEBUG("INDIC RADIUS: %f\n",indic_radius);
+    DEBUG("BUTTON RADIUS: %f\n",BUTTON_RADIUS);
     if (unlock_indicator &&
         (unlock_state >= STATE_KEY_PRESSED || auth_state > STATE_AUTH_IDLE || show_indicator)) {
         /* Draw a (centered) circle with transparent background. */
         cairo_set_line_width(ctx, RING_WIDTH);
-        cairo_arc(ctx, ind_x, ind_y, BUTTON_RADIUS, 0, 2 * M_PI);
+        cairo_arc(ctx, ind_x, ind_y, indic_radius, 0, 2 * M_PI);
 
         /* Use the appropriate color for the different PAM states
          * (currently verifying, wrong password, or default) */
@@ -593,14 +596,14 @@ static void draw_indic(cairo_t *ctx, double ind_x, double ind_y) {
         if (internal_line_source != 2) {  //pretty sure this only needs drawn if it's being drawn over the inside?
             cairo_set_source_rgba(ctx, line16.red, line16.green, line16.blue, line16.alpha);
             cairo_set_line_width(ctx, 2.0);
-            cairo_arc(ctx, ind_x, ind_y, BUTTON_RADIUS - 5, 0, 2 * M_PI);
+            cairo_arc(ctx, ind_x, ind_y, indic_radius - 5, 0, 2 * M_PI);
             cairo_stroke(ctx);
         }
         if (unlock_state == STATE_KEY_ACTIVE || unlock_state == STATE_BACKSPACE_ACTIVE) {
             cairo_set_line_width(ctx, RING_WIDTH);
             cairo_new_sub_path(ctx);
             double highlight_start = (rand() % (int)(2 * M_PI * 100)) / 100.0;
-            cairo_arc(ctx, ind_x, ind_y, BUTTON_RADIUS,
+            cairo_arc(ctx, ind_x, ind_y, indic_radius,
                       highlight_start, highlight_start + (M_PI / 3.0));
             if (unlock_state == STATE_KEY_ACTIVE) {
                 /* For normal keys, we use a lighter green. */
@@ -615,10 +618,10 @@ static void draw_indic(cairo_t *ctx, double ind_x, double ind_y) {
             /* Draw two little separators for the highlighted part of the
              * unlock indicator. */
             cairo_set_source_rgba(ctx, sep16.red, sep16.green, sep16.blue, sep16.alpha);
-            cairo_arc(ctx, ind_x, ind_y, BUTTON_RADIUS,
+            cairo_arc(ctx, ind_x, ind_y, indic_radius,
                       highlight_start, highlight_start + (M_PI / 128.0));
             cairo_stroke(ctx);
-            cairo_arc(ctx, ind_x, ind_y, BUTTON_RADIUS,
+            cairo_arc(ctx, ind_x, ind_y, indic_radius,
                       (highlight_start + (M_PI / 3.0)) - (M_PI / 128.0),
                       highlight_start + (M_PI / 3.0));
             cairo_stroke(ctx);
@@ -721,7 +724,7 @@ static DrawData create_draw_data() {
 static void draw_elements(cairo_t *const ctx, DrawData const *const draw_data) {
     // indicator stuff
     if (!bar_enabled) {
-        draw_indic(ctx, draw_data->indicator_x, draw_data->indicator_y);
+        draw_indic(ctx, draw_data->indicator_x, draw_data->indicator_y, draw_data->indic_radius);
     } else {
         if (unlock_state == STATE_KEY_ACTIVE ||
             unlock_state == STATE_BACKSPACE_ACTIVE) {
@@ -972,7 +975,8 @@ void render_lock(uint32_t *resolution, xcb_drawable_t drawable) {
     double screen_x = 0, screen_y = 0,
            width = 0, height = 0;
 
-    double radius = (circle_radius + ring_width);
+    // double radius = (circle_radius + ring_width);
+    double radius = 0;
     DEBUG("scaling_factor is %f, physical diameter is %d px\n",
           scaling_factor, button_diameter_physical);
 
@@ -994,22 +998,23 @@ void render_lock(uint32_t *resolution, xcb_drawable_t drawable) {
          {"by", &draw_data.bar_y},
          {"r", &radius}};
 
-    te_expr *te_ind_x_expr = compile_expression("--indpos", ind_x_expr, vars, vars_size);
-    te_expr *te_ind_y_expr = compile_expression("--indpos", ind_y_expr, vars, vars_size);
-    te_expr *te_time_x_expr = compile_expression("--timepos", time_x_expr, vars, vars_size);
-    te_expr *te_time_y_expr = compile_expression("--timepos", time_y_expr, vars, vars_size);
-    te_expr *te_date_x_expr = compile_expression("--datepos", date_x_expr, vars, vars_size);
-    te_expr *te_date_y_expr = compile_expression("--datepos", date_y_expr, vars, vars_size);
-    te_expr *te_layout_x_expr = compile_expression("--layoutpos", layout_x_expr, vars, vars_size);
-    te_expr *te_layout_y_expr = compile_expression("--layoutpos", layout_y_expr, vars, vars_size);
-    te_expr *te_status_x_expr = compile_expression("--statuspos", status_x_expr, vars, vars_size);
-    te_expr *te_status_y_expr = compile_expression("--statuspos", status_y_expr, vars, vars_size);
-    te_expr *te_verif_x_expr = compile_expression("--verifpos", verif_x_expr, vars, vars_size);
-    te_expr *te_verif_y_expr = compile_expression("--verifpos", verif_y_expr, vars, vars_size);
-    te_expr *te_wrong_x_expr = compile_expression("--wrongpos", wrong_x_expr, vars, vars_size);
-    te_expr *te_wrong_y_expr = compile_expression("--wrongpos", wrong_y_expr, vars, vars_size);
-    te_expr *te_modif_x_expr = compile_expression("--modifpos", modif_x_expr, vars, vars_size);
-    te_expr *te_modif_y_expr = compile_expression("--modifpos", modif_y_expr, vars, vars_size);
+    te_expr *te_radius_expr = compile_expression("--radius", radius_expr, vars, vars_size);
+    te_expr *te_ind_x_expr = compile_expression("--ind-pos", ind_x_expr, vars, vars_size);
+    te_expr *te_ind_y_expr = compile_expression("--ind-pos", ind_y_expr, vars, vars_size);
+    te_expr *te_time_x_expr = compile_expression("--time-pos", time_x_expr, vars, vars_size);
+    te_expr *te_time_y_expr = compile_expression("--time-pos", time_y_expr, vars, vars_size);
+    te_expr *te_date_x_expr = compile_expression("--date-pos", date_x_expr, vars, vars_size);
+    te_expr *te_date_y_expr = compile_expression("--date-pos", date_y_expr, vars, vars_size);
+    te_expr *te_layout_x_expr = compile_expression("--layout-pos", layout_x_expr, vars, vars_size);
+    te_expr *te_layout_y_expr = compile_expression("--layout-pos", layout_y_expr, vars, vars_size);
+    te_expr *te_status_x_expr = compile_expression("--status-pos", status_x_expr, vars, vars_size);
+    te_expr *te_status_y_expr = compile_expression("--status-pos", status_y_expr, vars, vars_size);
+    te_expr *te_verif_x_expr = compile_expression("--verif-pos", verif_x_expr, vars, vars_size);
+    te_expr *te_verif_y_expr = compile_expression("--verif-pos", verif_y_expr, vars, vars_size);
+    te_expr *te_wrong_x_expr = compile_expression("--wrong-pos", wrong_x_expr, vars, vars_size);
+    te_expr *te_wrong_y_expr = compile_expression("--wrong-pos", wrong_y_expr, vars, vars_size);
+    te_expr *te_modif_x_expr = compile_expression("--modif-pos", modif_x_expr, vars, vars_size);
+    te_expr *te_modif_y_expr = compile_expression("--modif-pos", modif_y_expr, vars, vars_size);
     te_expr *te_bar_x_expr = compile_expression("--bar-position", bar_x_expr, vars, vars_size);
     te_expr *te_bar_y_expr = strlen(bar_y_expr) ? compile_expression("--bar-position", bar_y_expr, vars, vars_size) : NULL;
     te_expr *te_bar_width_expr = strlen(bar_width_expr) ? compile_expression("--bar-width", bar_width_expr, vars, vars_size) : NULL;
@@ -1038,6 +1043,8 @@ void render_lock(uint32_t *resolution, xcb_drawable_t drawable) {
 
             width = xr_resolutions[current_screen].width / scaling_factor;
             height = xr_resolutions[current_screen].height / scaling_factor;
+            radius = te_eval(te_radius_expr);
+            draw_data.indic_radius = radius;
             screen_x = xr_resolutions[current_screen].x / scaling_factor;
             screen_y = xr_resolutions[current_screen].y / scaling_factor;
             draw_data.screen_x = screen_x;
@@ -1173,6 +1180,7 @@ void render_lock(uint32_t *resolution, xcb_drawable_t drawable) {
         draw_elements(ctx, &draw_data);
     }
 
+    te_free(te_radius_expr);
     te_free(te_ind_x_expr);
     te_free(te_ind_y_expr);
     te_free(te_time_x_expr);

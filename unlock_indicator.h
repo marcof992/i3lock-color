@@ -36,6 +36,7 @@ typedef struct {
 
     double screen_x, screen_y;
     double bar_x, bar_y, bar_width;
+    double indic_radius;
 } DrawData;
 
 typedef enum {
